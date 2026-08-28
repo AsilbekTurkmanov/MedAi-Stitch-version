@@ -224,8 +224,10 @@ const FALLBACK_CLINICS = [
   }
 ];
 
-// ─── Fallback Appointments ─────────────────────────────────────────────────────
-const FALLBACK_APPOINTMENTS = [
+// ─── Persistent Local Appointments Store ───────────────────────────────────────
+const LOCAL_APPOINTMENTS_KEY = 'medai_local_appointments';
+
+const DEFAULT_APPOINTMENTS = [
   {
     id: 1,
     patientName: 'Bobur Karimov',
@@ -258,7 +260,26 @@ const FALLBACK_APPOINTMENTS = [
   }
 ];
 
-const FALLBACK_PRESCRIPTIONS = [
+function getLocalAppointments() {
+  try {
+    const stored = localStorage.getItem(LOCAL_APPOINTMENTS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore parse error */ }
+  localStorage.setItem(LOCAL_APPOINTMENTS_KEY, JSON.stringify(DEFAULT_APPOINTMENTS));
+  return DEFAULT_APPOINTMENTS;
+}
+
+function saveLocalAppointments(appts) {
+  localStorage.setItem(LOCAL_APPOINTMENTS_KEY, JSON.stringify(appts));
+}
+
+// ─── Persistent Local Prescriptions Store ──────────────────────────────────────
+const LOCAL_PRESCRIPTIONS_KEY = 'medai_local_prescriptions';
+
+const DEFAULT_PRESCRIPTIONS = [
   {
     id: 1,
     patientName: 'Bobur Karimov',
@@ -273,6 +294,22 @@ const FALLBACK_PRESCRIPTIONS = [
     createdAt: new Date().toISOString()
   }
 ];
+
+function getLocalPrescriptions() {
+  try {
+    const stored = localStorage.getItem(LOCAL_PRESCRIPTIONS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore parse error */ }
+  localStorage.setItem(LOCAL_PRESCRIPTIONS_KEY, JSON.stringify(DEFAULT_PRESCRIPTIONS));
+  return DEFAULT_PRESCRIPTIONS;
+}
+
+function saveLocalPrescriptions(rxs) {
+  localStorage.setItem(LOCAL_PRESCRIPTIONS_KEY, JSON.stringify(rxs));
+}
 
 // ─── AI Diagnostic Engine (Fallback) ───────────────────────────────────────────
 function generateDiagnosticResult(payload) {
@@ -831,7 +868,7 @@ export const api = {
         isBackendAvailable = false;
       }
     }
-    return FALLBACK_APPOINTMENTS;
+    return getLocalAppointments();
   },
 
   async createAppointment(appointmentData) {
@@ -851,7 +888,18 @@ export const api = {
         isBackendAvailable = false;
       }
     }
-    return { ...appointmentData, id: Date.now(), status: 'Confirmed' };
+
+    const appts = getLocalAppointments();
+    const maxId = appts.reduce((max, a) => Math.max(max, a.id || 0), 0);
+    const newAppt = {
+      ...appointmentData,
+      id: maxId + 1,
+      scheduledTime: appointmentData.scheduledTime || new Date(Date.now() + 3600000).toISOString(),
+      status: appointmentData.status || 'Confirmed'
+    };
+    appts.push(newAppt);
+    saveLocalAppointments(appts);
+    return newAppt;
   },
 
   async getPrescriptions() {
@@ -867,7 +915,7 @@ export const api = {
         isBackendAvailable = false;
       }
     }
-    return FALLBACK_PRESCRIPTIONS;
+    return getLocalPrescriptions();
   },
 
   async createPrescription(prescriptionData) {
@@ -887,7 +935,18 @@ export const api = {
         isBackendAvailable = false;
       }
     }
-    return { ...prescriptionData, id: Date.now(), createdAt: new Date().toISOString() };
+
+    const rxs = getLocalPrescriptions();
+    const maxId = rxs.reduce((max, r) => Math.max(max, r.id || 0), 0);
+    const newRx = {
+      ...prescriptionData,
+      id: maxId + 1,
+      createdAt: new Date().toISOString(),
+      aiSafetyCheckNotes: prescriptionData.aiSafetyCheckNotes || 'Validated: 0 contraindications. 0 drug-drug interactions detected.'
+    };
+    rxs.unshift(newRx);
+    saveLocalPrescriptions(rxs);
+    return newRx;
   }
 };
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MedAi.Api.Data;
 using MedAi.Api.Models;
 using MedAi.Api.Services;
@@ -54,10 +55,10 @@ public class DiagnosticsController : ControllerBase
     [HttpGet("history/{patientId}")]
     public async Task<ActionResult<IEnumerable<DiagnosticRecord>>> GetPatientHistory(int patientId)
     {
-        var records = _context.DiagnosticRecords
+        var records = await _context.DiagnosticRecords
             .Where(r => r.PatientId == patientId)
             .OrderByDescending(r => r.AnalyzedAt)
-            .ToList();
+            .ToListAsync();
 
         return Ok(records);
     }

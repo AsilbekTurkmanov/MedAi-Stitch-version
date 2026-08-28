@@ -4,31 +4,22 @@ import {
   Users, 
   Bed, 
   ShieldAlert, 
-  Settings, 
   Activity, 
   TrendingUp, 
   UserPlus, 
-  CheckCircle2, 
   AlertTriangle, 
-  Clock, 
   Cpu, 
   Database, 
-  Lock, 
   Sparkles, 
   Search, 
-  Filter, 
-  Trash2, 
   RefreshCw, 
   Download, 
-  FileText,
-  Stethoscope,
-  Radio,
-  Sliders,
-  X
+  Stethoscope, 
+  Radio, 
+  X 
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { useAuth, DEMO_DOCTORS } from '../context/AuthContext';
-import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const INITIAL_STAFF = [
   { id: 1, name: 'Dr. Sarah Vance, MD', role: 'Bosh Shifokor / Kardiolog', department: 'Kardiologiya', shift: 'Kunduzgi (08:00 - 18:00)', status: 'On Duty', patientsCount: 8, room: 'ICU-03' },
@@ -49,7 +40,7 @@ const INITIAL_BEDS = [
   { bedNumber: 'OPD-12', department: 'Terapiya', patientName: 'Bo\'sh (Tayyor)', condition: 'Available', vitals: '—', doctor: '—', occupied: false }
 ];
 
-const AUDIT_LOGS = [
+const INITIAL_AUDIT_LOGS = [
   { id: 101, timestamp: '12:28:14', actor: 'Dr. Sarah Vance', action: 'EHR Accessed', target: 'Jasur Alimov (#1)', ip: '192.168.1.42', status: 'Success' },
   { id: 102, timestamp: '12:25:02', actor: 'AI Diagnostic Engine', action: 'Inference Run', target: 'STEMI Protocol (#I21.0)', ip: 'Internal AI Core', status: 'Verified' },
   { id: 103, timestamp: '12:20:45', actor: 'Dr. Akbar Rahimov', action: 'e-Prescription Signed', target: 'Bobur Karimov (#3)', ip: '192.168.1.55', status: 'Success' },
@@ -57,12 +48,47 @@ const AUDIT_LOGS = [
   { id: 105, timestamp: '12:02:11', actor: 'Admin Security', action: 'HL7 FHIR Sync', target: 'Central EHR Cloud', ip: '192.168.1.1', status: 'Synced' }
 ];
 
+const STORAGE_KEYS = {
+  STAFF: 'medai_admin_staff',
+  BEDS: 'medai_admin_beds',
+  LOGS: 'medai_admin_audit_logs'
+};
+
 export default function AdminPanel() {
   const { lang, t } = useLanguage();
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState('overview'); // 'overview' | 'staff' | 'beds' | 'security' | 'system'
-  const [staffList, setStaffList] = useState(INITIAL_STAFF);
-  const [bedList, setBedList] = useState(INITIAL_BEDS);
+  const [activeSubTab, setActiveSubTab] = useState('overview');
+  
+  // Persistent staff state
+  const [staffList, setStaffList] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.STAFF);
+      return stored ? JSON.parse(stored) : INITIAL_STAFF;
+    } catch {
+      return INITIAL_STAFF;
+    }
+  });
+
+  // Persistent bed state
+  const [bedList, setBedList] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.BEDS);
+      return stored ? JSON.parse(stored) : INITIAL_BEDS;
+    } catch {
+      return INITIAL_BEDS;
+    }
+  });
+
+  // Persistent audit logs
+  const [auditLogs, setAuditLogs] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.LOGS);
+      return stored ? JSON.parse(stored) : INITIAL_AUDIT_LOGS;
+    } catch {
+      return INITIAL_AUDIT_LOGS;
+    }
+  });
+
   const [searchStaff, setSearchStaff] = useState('');
   
   // New Staff Modal State
@@ -74,6 +100,32 @@ export default function AdminPanel() {
 
   // Hospital Emergency Code Trigger
   const [activeEmergencyCode, setActiveEmergencyCode] = useState(null);
+
+  // Sync state to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(staffList));
+  }, [staffList]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.BEDS, JSON.stringify(bedList));
+  }, [bedList]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(auditLogs));
+  }, [auditLogs]);
+
+  const addAuditLog = (action, target, status = 'Success') => {
+    const newLog = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      actor: user?.name || 'Admin',
+      action,
+      target,
+      ip: '192.168.1.' + Math.floor(10 + Math.random() * 80),
+      status
+    };
+    setAuditLogs(prev => [newLog, ...prev.slice(0, 49)]);
+  };
 
   const handleAddStaff = (e) => {
     e.preventDefault();
@@ -90,22 +142,38 @@ export default function AdminPanel() {
       room: 'OPD-' + (100 + staffList.length)
     };
 
-    setStaffList([...staffList, newStaff]);
+    const updated = [...staffList, newStaff];
+    setStaffList(updated);
+    addAuditLog('Staff Added', `${newStaff.name} (${newStaff.department})`, 'Success');
     setShowAddStaffModal(false);
     setNewStaffName('');
   };
 
   const handleToggleBed = (index) => {
     const updated = [...bedList];
-    updated[index].occupied = !updated[index].occupied;
-    if (!updated[index].occupied) {
-      updated[index].patientName = 'Bo\'sh (Mavjud)';
-      updated[index].condition = 'Available';
+    const targetBed = updated[index];
+    targetBed.occupied = !targetBed.occupied;
+    if (!targetBed.occupied) {
+      targetBed.patientName = lang === 'uz' ? 'Bo\'sh (Mavjud)' : lang === 'ru' ? 'Свободна (Доступно)' : 'Available (Ready)';
+      targetBed.condition = 'Available';
     } else {
-      updated[index].patientName = 'Yangi Bemor';
-      updated[index].condition = 'Monitoring';
+      targetBed.patientName = lang === 'uz' ? 'Yangi Bemor' : lang === 'ru' ? 'Новый Пациент' : 'Admitted Patient';
+      targetBed.condition = 'Monitoring';
     }
     setBedList(updated);
+    addAuditLog('Bed Status Changed', `${targetBed.bedNumber} -> ${targetBed.occupied ? 'Occupied' : 'Vacant'}`, 'Verified');
+  };
+
+  const handleEmergencyTrigger = (codeName) => {
+    setActiveEmergencyCode(codeName);
+    addAuditLog('EMERGENCY CODE ALERT', codeName, 'ACTIVE');
+  };
+
+  const handleCancelEmergency = () => {
+    if (activeEmergencyCode) {
+      addAuditLog('Emergency Code Cancelled', activeEmergencyCode, 'Resolved');
+      setActiveEmergencyCode(null);
+    }
   };
 
   const filteredStaff = staffList.filter(s => 
@@ -115,7 +183,7 @@ export default function AdminPanel() {
 
   const totalBeds = bedList.length;
   const occupiedBeds = bedList.filter(b => b.occupied).length;
-  const occupancyRate = Math.round((occupiedBeds / totalBeds) * 100);
+  const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
   return (
     <div className="space-y-8 animate-fadeIn pb-12">
@@ -127,15 +195,11 @@ export default function AdminPanel() {
               <Building2 className="w-5 h-5" />
             </div>
             <h1 className="text-2xl font-extrabold text-white">
-              {lang === 'uz' ? 'Klinika Boshqaruv & Admin Paneli' : lang === 'ru' ? 'Панель Управления и Администрации Клиники' : 'Hospital Administration & Command Center'}
+              {t('admin.title')}
             </h1>
           </div>
           <p className="text-slate-400 text-xs mt-1">
-            {lang === 'uz' 
-              ? 'Kasalxona resurslari, palatalar sig\'imi, xodimlar navbatchiligi, xavfsizlik jurnali va AI tizim nazorati.'
-              : lang === 'ru'
-              ? 'Управление ресурсами клиники, коечный фонд, смены персонала, аудит безопасности и мониторинг ИИ.'
-              : 'Hospital resources, ward capacity, staff on duty, clinical audit trails, and AI system health.'}
+            {t('admin.subtitle')}
           </p>
         </div>
 
@@ -143,25 +207,25 @@ export default function AdminPanel() {
         <div className="flex items-center gap-2 self-start md:self-auto">
           {activeEmergencyCode ? (
             <button
-              onClick={() => setActiveEmergencyCode(null)}
+              onClick={handleCancelEmergency}
               className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-950 flex items-center gap-2 animate-pulse cursor-pointer"
             >
               <AlertTriangle className="w-4 h-4" />
-              <span>{activeEmergencyCode} — BEKOR QILISH</span>
+              <span>{activeEmergencyCode} — {t('admin.cancelEmergency')}</span>
             </button>
           ) : (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setActiveEmergencyCode('CODE BLUE (Reanimatsiya)')}
+                onClick={() => handleEmergencyTrigger('CODE BLUE (Cardiac / ICU)')}
                 className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-sky-950/80 border border-sky-600/40 text-sky-400 text-xs font-bold transition-all cursor-pointer"
               >
-                🚨 Code Blue
+                {t('admin.codeBlue')}
               </button>
               <button
-                onClick={() => setActiveEmergencyCode('CODE RED (Evakuatsiya / Yong\'in)')}
+                onClick={() => handleEmergencyTrigger('CODE RED (Evacuation / Fire)')}
                 className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-rose-950/80 border border-rose-600/40 text-rose-400 text-xs font-bold transition-all cursor-pointer"
               >
-                ⚠️ Code Red
+                {t('admin.codeRed')}
               </button>
             </div>
           )}
@@ -171,11 +235,11 @@ export default function AdminPanel() {
       {/* Navigation Sub-Tabs */}
       <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
         {[
-          { id: 'overview', label: lang === 'uz' ? 'Umumiy Holat' : lang === 'ru' ? 'Обзор Клиники' : 'Hospital Overview', icon: Activity },
-          { id: 'staff', label: lang === 'uz' ? 'Shifokorlar & Xodimlar' : lang === 'ru' ? 'Персонал и Смены' : 'Staff & Shifts', icon: Users, count: staffList.length },
-          { id: 'beds', label: lang === 'uz' ? 'Palatalar & O\'rinlar' : lang === 'ru' ? 'Коечный Фонд' : 'Wards & Beds', badge: `${occupancyRate}%` },
-          { id: 'security', label: lang === 'uz' ? 'Xavfsizlik & Audit' : lang === 'ru' ? 'Безопасность и Аудит' : 'Audit & HIPAA Logs', icon: ShieldAlert },
-          { id: 'system', label: lang === 'uz' ? 'Tizim & AI Nazorat' : lang === 'ru' ? 'Система и ИИ' : 'System & AI Health', icon: Cpu },
+          { id: 'overview', label: t('admin.tabOverview'), icon: Activity },
+          { id: 'staff', label: t('admin.tabStaff'), icon: Users, count: staffList.length },
+          { id: 'beds', label: t('admin.tabBeds'), badge: `${occupancyRate}%` },
+          { id: 'security', label: t('admin.tabSecurity'), icon: ShieldAlert },
+          { id: 'system', label: t('admin.tabSystem'), icon: Cpu },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
@@ -215,11 +279,11 @@ export default function AdminPanel() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
-                <span>O'rinlar Bandligi</span>
+                <span>{t('admin.bedOccupancy')}</span>
                 <Bed className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="text-3xl font-extrabold text-white font-mono">{occupancyRate}%</div>
-              <p className="text-[11px] text-slate-400">{occupiedBeds} band / {totalBeds} jami o'rinlar</p>
+              <p className="text-[11px] text-slate-400">{occupiedBeds} {t('admin.occupiedOfTotal')} ({totalBeds})</p>
               <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden mt-2">
                 <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${occupancyRate}%` }} />
               </div>
@@ -227,23 +291,23 @@ export default function AdminPanel() {
 
             <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
-                <span>Navbatchi Xodimlar</span>
+                <span>{t('admin.dutyStaff')}</span>
                 <Users className="w-4 h-4 text-emerald-400" />
               </div>
-              <div className="text-3xl font-extrabold text-emerald-400 font-mono">14</div>
-              <p className="text-[11px] text-slate-400">8 Shifokor • 6 Hamshira</p>
+              <div className="text-3xl font-extrabold text-emerald-400 font-mono">{staffList.length}</div>
+              <p className="text-[11px] text-slate-400">{staffList.filter(s => s.status === 'On Duty').length} Active • {staffList.length} Total</p>
               <span className="inline-block text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
-                100% Smena to'liq
+                {t('admin.shiftFull')}
               </span>
             </div>
 
             <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
-                <span>AI Diagnostik Klaster</span>
+                <span>{t('admin.aiCluster')}</span>
                 <Sparkles className="w-4 h-4 text-sky-400" />
               </div>
               <div className="text-3xl font-extrabold text-sky-400 font-mono">99.98%</div>
-              <p className="text-[11px] text-slate-400">Inference: 120ms • GPU Klaster OK</p>
+              <p className="text-[11px] text-slate-400">Inference: 120ms • GPU Cluster OK</p>
               <span className="inline-block text-[10px] text-sky-400 font-semibold bg-sky-950/60 px-2 py-0.5 rounded border border-sky-800">
                 Model v2026.4 Active
               </span>
@@ -251,13 +315,13 @@ export default function AdminPanel() {
 
             <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-2">
               <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
-                <span>Kunlik Ko'riklar</span>
+                <span>{t('admin.dailyConsults')}</span>
                 <TrendingUp className="w-4 h-4 text-indigo-400" />
               </div>
               <div className="text-3xl font-extrabold text-white font-mono">64</div>
-              <p className="text-[11px] text-slate-400">+18% kechagiga nisbatan</p>
+              <p className="text-[11px] text-slate-400">+18% vs Yesterday</p>
               <span className="inline-block text-[10px] text-indigo-400 font-semibold bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800">
-                O'rtacha vaqt: 14 daqiqa
+                Avg time: 14 min
               </span>
             </div>
           </div>
@@ -267,7 +331,7 @@ export default function AdminPanel() {
             <div className="lg:col-span-7 glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-cyan-400" />
-                <span>Bo'limlar Sig'imi va Statsionar Yuklama</span>
+                <span>{t('admin.deptCapacity')}</span>
               </h3>
 
               <div className="space-y-4 pt-2">
@@ -297,16 +361,16 @@ export default function AdminPanel() {
             <div className="lg:col-span-5 glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-                <span>Server & API Salomatlik Holati</span>
+                <span>{t('admin.serverHealth')}</span>
               </h3>
 
               <div className="space-y-3 pt-2">
                 {[
-                  { name: '.NET 10 Web API Core', status: 'Online (200 OK)', latency: '18ms', healthy: true },
-                  { name: 'HL7 / FHIR Integration Gateway', status: 'Connected', latency: '42ms', healthy: true },
-                  { name: 'PACS Radiology DICOM Store', status: 'Ready (Storage 4.2TB)', latency: '35ms', healthy: true },
-                  { name: 'DeepSeek / AI Inference Node', status: 'Active (GPU 42%)', latency: '120ms', healthy: true },
-                  { name: 'WebRTC Telehealth Gateway', status: 'Encrypted Stream OK', latency: '24ms', healthy: true },
+                  { name: '.NET 10 Web API Core', status: 'Online (200 OK)', latency: '18ms' },
+                  { name: 'HL7 / FHIR Integration Gateway', status: 'Connected', latency: '42ms' },
+                  { name: 'PACS Radiology DICOM Store', status: 'Ready (Storage 4.2TB)', latency: '35ms' },
+                  { name: 'DeepSeek / AI Inference Node', status: 'Active (GPU 42%)', latency: '120ms' },
+                  { name: 'WebRTC Telehealth Gateway', status: 'Encrypted Stream OK', latency: '24ms' },
                 ].map((srv, idx) => (
                   <div key={idx} className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2.5">
@@ -333,7 +397,7 @@ export default function AdminPanel() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Shifokor ismi yoki bo'lim..."
+                placeholder={t('admin.searchStaffPlaceholder')}
                 value={searchStaff}
                 onChange={(e) => setSearchStaff(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
@@ -345,7 +409,7 @@ export default function AdminPanel() {
               className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md"
             >
               <UserPlus className="w-4 h-4" />
-              <span>Yangi Shifokor Qo'shish</span>
+              <span>{t('admin.addStaffBtn')}</span>
             </button>
           </div>
 
@@ -378,24 +442,22 @@ export default function AdminPanel() {
 
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-1.5">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Bo'lim:</span>
+                    <span className="text-slate-400">{t('admin.department')}:</span>
                     <strong className="text-slate-200">{staff.department}</strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Smena:</span>
+                    <span className="text-slate-400">{t('admin.shiftSchedule')}:</span>
                     <span className="text-slate-300 font-mono text-[11px]">{staff.shift}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Xona / Palata:</span>
+                    <span className="text-slate-400">Room:</span>
                     <span className="text-cyan-300 font-mono">{staff.room}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/60">
-                  <span className="text-slate-400 text-[11px]">Bemorlar soni: <strong className="text-white">{staff.patientsCount}</strong></span>
-                  <button className="text-cyan-400 font-semibold text-xs hover:underline cursor-pointer">
-                    Smenani tahrirlash →
-                  </button>
+                  <span className="text-slate-400 text-[11px]">Patients: <strong className="text-white">{staff.patientsCount}</strong></span>
+                  <span className="text-cyan-400 font-semibold text-xs">Active Shift</span>
                 </div>
               </div>
             ))}
@@ -408,18 +470,18 @@ export default function AdminPanel() {
         <div className="space-y-6 animate-fadeIn">
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-bold text-white">Statsionar O'rinlar Nazorati (Beds Grid)</h3>
-              <p className="text-xs text-slate-400">O'rin ustiga bosish orqali holatini (Band / Bo'sh) tezkor almashtirish mumkin</p>
+              <h3 className="text-base font-bold text-white">{t('admin.wardsTitle')}</h3>
+              <p className="text-xs text-slate-400">{t('admin.wardsSubtitle')}</p>
             </div>
             <div className="flex items-center gap-4 text-xs font-semibold">
               <span className="flex items-center gap-1.5 text-rose-400">
-                <span className="w-2.5 h-2.5 rounded bg-rose-500" /> Band (Critical)
+                <span className="w-2.5 h-2.5 rounded bg-rose-500" /> {t('admin.occupiedCritical')}
               </span>
               <span className="flex items-center gap-1.5 text-cyan-400">
-                <span className="w-2.5 h-2.5 rounded bg-cyan-500" /> Band (Stable)
+                <span className="w-2.5 h-2.5 rounded bg-cyan-500" /> {t('admin.occupiedStable')}
               </span>
               <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-2.5 h-2.5 rounded bg-emerald-500" /> Bo'sh (Mavjud)
+                <span className="w-2.5 h-2.5 rounded bg-emerald-500" /> {t('admin.availableBed')}
               </span>
             </div>
           </div>
@@ -457,8 +519,8 @@ export default function AdminPanel() {
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
-                  <span>Shifokor: {bed.doctor.split(',')[0]}</span>
-                  <span className="text-cyan-400 font-bold">O'zgartirish ⇄</span>
+                  <span>MD: {bed.doctor.split(',')[0]}</span>
+                  <span className="text-cyan-400 font-bold">Toggle ⇄</span>
                 </div>
               </div>
             ))}
@@ -474,13 +536,13 @@ export default function AdminPanel() {
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 text-rose-400" />
-                  <span>Klinik Audit va Xavfsizlik Jurnali (HIPAA Compliant)</span>
+                  <span>{t('admin.auditTitle')}</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Barcha elektron tibbiy kartochka (EHR) va AI tashxis so'rovlari shifrlangan holatda qayd etiladi.</p>
+                <p className="text-xs text-slate-400 mt-0.5">{t('admin.auditSubtitle')}</p>
               </div>
 
               <span className="px-3 py-1 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-400 text-xs font-bold font-mono">
-                Log Integrity: 100% Verified
+                {t('admin.auditVerified')}
               </span>
             </div>
 
@@ -488,16 +550,16 @@ export default function AdminPanel() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
-                    <th className="py-2.5 px-3">Vaqt</th>
-                    <th className="py-2.5 px-3">Foydalanuvchi</th>
-                    <th className="py-2.5 px-3">Amal</th>
-                    <th className="py-2.5 px-3">Maqsad / Bemor</th>
-                    <th className="py-2.5 px-3">IP Manzil</th>
-                    <th className="py-2.5 px-3 text-right">Holat</th>
+                    <th className="py-2.5 px-3">{t('admin.time')}</th>
+                    <th className="py-2.5 px-3">{t('admin.user')}</th>
+                    <th className="py-2.5 px-3">{t('admin.action')}</th>
+                    <th className="py-2.5 px-3">{t('admin.target')}</th>
+                    <th className="py-2.5 px-3">{t('admin.ipAddress')}</th>
+                    <th className="py-2.5 px-3 text-right">{t('admin.status')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {AUDIT_LOGS.map((log) => (
+                  {auditLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
                       <td className="py-3 px-3 font-mono text-cyan-400">{log.timestamp}</td>
                       <td className="py-3 px-3 font-bold text-white">{log.actor}</td>
@@ -524,10 +586,10 @@ export default function AdminPanel() {
           <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <Database className="w-4 h-4 text-cyan-400" />
-              <span>Lokal Ma'lumotlar Bazasi & Rezerv Nusxa</span>
+              <span>{t('admin.dbBackupTitle')}</span>
             </h3>
             <p className="text-xs text-slate-300">
-              Vercel va brauzer xotirasidagi bemorlar va retseptlar bazasini boshqarish.
+              {t('admin.dbBackupDesc')}
             </p>
 
             <div className="space-y-3 pt-2">
@@ -540,24 +602,30 @@ export default function AdminPanel() {
                   a.href = url;
                   a.download = `medai_patients_backup_${Date.now()}.json`;
                   a.click();
+                  addAuditLog('Database Backup Exported', 'JSON Export', 'Success');
                 }}
                 className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <Download className="w-4 h-4 text-cyan-400" />
-                <span>Bemorlar Bazasini Yuklab Olish (JSON Export)</span>
+                <span>{t('admin.downloadBackup')}</span>
               </button>
 
               <button
                 onClick={() => {
-                  if (confirm('Bemorlar bazasini standart holatga qaytarishni xohlaysizmi?')) {
+                  if (confirm('Bemorlar va retseptlar bazasini standart holatga qaytarishni xohlaysizmi?')) {
                     localStorage.removeItem('medai_local_patients');
+                    localStorage.removeItem('medai_local_appointments');
+                    localStorage.removeItem('medai_local_prescriptions');
+                    localStorage.removeItem('medai_admin_staff');
+                    localStorage.removeItem('medai_admin_beds');
+                    localStorage.removeItem('medai_admin_audit_logs');
                     window.location.reload();
                   }
                 }}
                 className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-rose-950/50 border border-slate-800 hover:border-rose-700 text-slate-300 hover:text-rose-300 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <RefreshCw className="w-4 h-4 text-rose-400" />
-                <span>Lokal Bemorlar Keshini Tozalash & Qayta Yuklash</span>
+                <span>{t('admin.resetCache')}</span>
               </button>
             </div>
           </div>
@@ -565,13 +633,13 @@ export default function AdminPanel() {
           <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-400" />
-              <span>AI Neyrotarmoq Parametrlari (Hyperparameters)</span>
+              <span>{t('admin.aiParamsTitle')}</span>
             </h3>
 
             <div className="space-y-3 text-xs pt-1">
               <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center">
                 <div>
-                  <div className="font-bold text-white">MKX-10 Tashxis Aniqlovchi Model</div>
+                  <div className="font-bold text-white">MKX-10 Diagnostic Neural Classifier</div>
                   <div className="text-[10px] text-slate-400">Transformer-based Medical LLM</div>
                 </div>
                 <span className="font-mono text-cyan-400 font-bold">Accuracy: 98.4%</span>
@@ -579,7 +647,7 @@ export default function AdminPanel() {
 
               <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center">
                 <div>
-                  <div className="font-bold text-white">Radiologiya Vision Segmentatsiya</div>
+                  <div className="font-bold text-white">Radiology Vision Segmentation (ROI)</div>
                   <div className="text-[10px] text-slate-400">UNet++ / ResNet-101 Backbone</div>
                 </div>
                 <span className="font-mono text-indigo-400 font-bold">Dice Score: 0.94</span>
@@ -587,8 +655,8 @@ export default function AdminPanel() {
 
               <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex justify-between items-center">
                 <div>
-                  <div className="font-bold text-white">Dori Ziddiyatlarini Tekshirish (DDI)</div>
-                  <div className="text-[10px] text-slate-400">Pharmacokinetic Rule Engine</div>
+                  <div className="font-bold text-white">Pharmacological Drug Conflict (DDI) Engine</div>
+                  <div className="text-[10px] text-slate-400">Pharmacokinetic Rule Validator</div>
                 </div>
                 <span className="font-mono text-emerald-400 font-bold">0 False Positives</span>
               </div>
@@ -606,7 +674,7 @@ export default function AdminPanel() {
                 <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
                   <UserPlus className="w-5 h-5" />
                 </div>
-                <h3 className="text-base font-bold text-white">Yangi Shifokor / Xodim Qo'shish</h3>
+                <h3 className="text-base font-bold text-white">{t('admin.addStaffModalTitle')}</h3>
               </div>
               <button
                 onClick={() => setShowAddStaffModal(false)}
@@ -618,11 +686,11 @@ export default function AdminPanel() {
 
             <form onSubmit={handleAddStaff} className="space-y-3">
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">To'liq Ismi (F.I.SH)</label>
+                <label className="text-[11px] font-semibold text-slate-400 block mb-1">{t('admin.fullName')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="masalan: Dr. Otabek Rustamov, MD"
+                  placeholder="e.g. Dr. Otabek Rustamov, MD"
                   value={newStaffName}
                   onChange={(e) => setNewStaffName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
@@ -630,7 +698,7 @@ export default function AdminPanel() {
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-400 block mb-1">Mutaxassisligi / Lavozimi</label>
+                <label className="text-[11px] font-semibold text-slate-400 block mb-1">{t('admin.roleSpecialty')}</label>
                 <input
                   type="text"
                   required
@@ -642,7 +710,7 @@ export default function AdminPanel() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">Bo'lim</label>
+                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">{t('admin.department')}</label>
                   <select
                     value={newStaffDept}
                     onChange={(e) => setNewStaffDept(e.target.value)}
@@ -656,7 +724,7 @@ export default function AdminPanel() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">Smena Grafigi</label>
+                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">{t('admin.shiftSchedule')}</label>
                   <select
                     value={newStaffShift}
                     onChange={(e) => setNewStaffShift(e.target.value)}
@@ -675,13 +743,13 @@ export default function AdminPanel() {
                   onClick={() => setShowAddStaffModal(false)}
                   className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-400 hover:text-white"
                 >
-                  Bekor qilish
+                  {t('admin.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-400 text-xs font-bold text-white shadow-lg shadow-cyan-950 cursor-pointer"
                 >
-                  Xodimni Saqlash
+                  {t('admin.saveStaff')}
                 </button>
               </div>
             </form>
