@@ -473,14 +473,14 @@ let isBackendAvailable = null;
 
 async function checkBackend() {
   if (isBackendAvailable !== null) return isBackendAvailable;
-  if (typeof window !== 'undefined' && (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('github.io'))) {
-    // Running on static hosting platform without separate backend deployed
+  if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    // Running on remote static hosting (e.g. medai-stitch.vercel.app) without dedicated backend proxy
     isBackendAvailable = false;
     return false;
   }
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    const timeoutId = setTimeout(() => controller.abort(), 800);
     const res = await fetch(`${API_BASE}/analytics/dashboard`, { signal: controller.signal });
     clearTimeout(timeoutId);
     const ct = res.headers.get('content-type');

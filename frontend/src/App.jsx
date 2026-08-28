@@ -8,14 +8,17 @@ import Copilot from './pages/Copilot';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
 import NearbyClinics from './pages/NearbyClinics';
+import Login from './pages/Login';
 import { api } from './services/api';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { X, UserPlus } from 'lucide-react';
 
 function AppContent() {
   const { t } = useLanguage();
   const { isDark } = useTheme();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedPatientForDiag, setSelectedPatientForDiag] = useState(null);
 
@@ -63,6 +66,11 @@ function AppContent() {
       console.error('Error creating patient', err);
     }
   };
+
+  // If user is not authenticated, show the Login page
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
     <div className={`flex min-h-screen ${isDark ? 'bg-[#090d16] text-slate-100' : 'bg-[#f0f4f9] text-slate-900'} antialiased selection:bg-cyan-500 selection:text-white`}>
@@ -252,7 +260,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </LanguageProvider>
     </ThemeProvider>
   );

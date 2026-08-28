@@ -10,14 +10,18 @@ import {
   Globe,
   Sun,
   Moon,
-  ChevronDown
+  ChevronDown,
+  LogOut,
+  User
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar({ onOpenNewPatient, onQuickDiag, criticalCount = 2 }) {
   const { lang, setLang, t } = useLanguage();
   const { theme, toggleTheme, isDark } = useTheme();
+  const { user, logout } = useAuth();
   const [showLangMenu, setShowLangMenu] = useState(false);
 
   const languages = [
@@ -112,17 +116,28 @@ export default function Navbar({ onOpenNewPatient, onQuickDiag, criticalCount = 
           <span className="hidden sm:inline">{t('header.addPatient')}</span>
         </button>
 
-        {/* Clinician Profile */}
+        {/* Clinician Profile & Logout */}
         <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 p-0.5">
-            <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center font-bold text-cyan-400 text-sm">
-              <Stethoscope className="w-4 h-4 text-cyan-400" />
+            <div className="w-full h-full rounded-[10px] bg-slate-950 flex items-center justify-center font-bold text-cyan-400 text-xs font-mono">
+              {user?.avatar || 'MD'}
             </div>
           </div>
           <div className="text-left hidden xl:block">
-            <div className="text-xs font-bold text-slate-200">Dr. Sarah Vance, MD</div>
-            <div className="text-[10px] text-cyan-400 font-medium">{t('header.doctorRole')}</div>
+            <div className="text-xs font-bold text-slate-200">{user?.name || 'Dr. Sarah Vance, MD'}</div>
+            <div className="text-[10px] text-cyan-400 font-medium">
+              {lang === 'uz' ? (user?.role || t('header.doctorRole')) : lang === 'ru' ? (user?.roleRu || user?.role) : (user?.roleEn || user?.role)}
+            </div>
           </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            className="p-2 rounded-xl bg-slate-900/80 hover:bg-rose-950/60 border border-slate-800 hover:border-rose-700/50 text-slate-400 hover:text-rose-300 transition-all cursor-pointer ml-1"
+            title={lang === 'uz' ? 'Tizimdan chiqish' : lang === 'ru' ? 'Выйти из системы' : 'Log out'}
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>
