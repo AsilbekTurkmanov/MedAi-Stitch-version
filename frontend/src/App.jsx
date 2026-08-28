@@ -111,6 +111,8 @@ function AppContent() {
           {activeTab === 'appointments' && <Appointments />}
 
           {activeTab === 'admin' && <AdminPanel />}
+
+          {activeTab === 'login' && <Login onLoginSuccess={() => setActiveTab('dashboard')} />}
         </main>
       </div>
 

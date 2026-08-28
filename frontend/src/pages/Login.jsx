@@ -23,7 +23,7 @@ import { useAuth, DEMO_DOCTORS } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 
-export default function Login() {
+export default function Login({ onLoginSuccess }) {
   const { login, loginAsDemo, loading } = useAuth();
   const { lang, setLang, t } = useLanguage();
   const { isDark, toggleTheme } = useTheme();
@@ -44,6 +44,7 @@ export default function Login() {
     e.preventDefault();
     if (!email) return;
     await login(email, password);
+    if (onLoginSuccess) onLoginSuccess();
   };
 
   const handleBiometricLogin = async () => {
@@ -51,12 +52,14 @@ export default function Login() {
     setTimeout(async () => {
       await loginAsDemo(selectedDemoIndex);
       setScanningFingerprint(false);
+      if (onLoginSuccess) onLoginSuccess();
     }, 1200);
   };
 
   const handleQuickDemo = async (index) => {
     setSelectedDemoIndex(index);
     await loginAsDemo(index);
+    if (onLoginSuccess) onLoginSuccess();
   };
 
   return (

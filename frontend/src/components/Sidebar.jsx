@@ -26,6 +26,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'patients', label: t('nav.patients'), icon: Users, count: '5' },
     { id: 'appointments', label: t('nav.appointments'), icon: CalendarCheck },
     { id: 'admin', label: t('nav.admin') || 'Admin Paneli', icon: Building2, badge: 'Admin' },
+    { id: 'login', label: t('nav.login') || 'Login / Kirish', icon: ShieldCheck, badge: 'Auth' },
   ];
 
   return (

@@ -10,6 +10,7 @@ export const translations = {
       appointments: "Teletibbiyot & Retseptlar",
       clinics: "Yaqin Shifoxonalar (Xarita)",
       admin: "Admin Paneli",
+      login: "Login / Kirish",
       coreOnline: "Tizim Ishlamoqda",
       hipaa: "HL7 / FHIR Xavfsiz",
       clinicalModules: "Klinik Modullar"
@@ -261,6 +262,7 @@ export const translations = {
       appointments: "Телемедицина & Рецепты",
       clinics: "Ближайшие Клиники (Карта)",
       admin: "Панель Администратора",
+      login: "Вход / Авторизация",
       coreOnline: "Система Онлайн",
       hipaa: "HL7 / FHIR Защита",
       clinicalModules: "Клинические Модули"
@@ -504,6 +506,7 @@ export const translations = {
       appointments: "Telehealth & Prescriptions",
       clinics: "Nearby Clinics & Hospitals",
       admin: "Admin Panel",
+      login: "Doctor Login Portal",
       coreOnline: "System Online",
       hipaa: "HL7 / FHIR Compliant",
       clinicalModules: "Clinical Modules"
