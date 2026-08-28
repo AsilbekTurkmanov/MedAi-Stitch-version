@@ -9,7 +9,8 @@ import {
   ShieldCheck, 
   HeartPulse,
   Sparkles,
-  MapPin
+  MapPin,
+  Building2
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -24,6 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'clinics', label: t('nav.clinics'), icon: MapPin, badge: 'GPS' },
     { id: 'patients', label: t('nav.patients'), icon: Users, count: '5' },
     { id: 'appointments', label: t('nav.appointments'), icon: CalendarCheck },
+    { id: 'admin', label: t('nav.admin') || 'Admin Paneli', icon: Building2, badge: 'Admin' },
   ];
 
   return (

@@ -8,6 +8,7 @@ import Copilot from './pages/Copilot';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
 import NearbyClinics from './pages/NearbyClinics';
+import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
 import { api } from './services/api';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -108,6 +109,8 @@ function AppContent() {
           )}
 
           {activeTab === 'appointments' && <Appointments />}
+
+          {activeTab === 'admin' && <AdminPanel />}
         </main>
       </div>
 
