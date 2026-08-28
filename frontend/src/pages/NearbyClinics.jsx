@@ -79,8 +79,8 @@ export default function NearbyClinics() {
   };
 
   const filteredClinics = clinics.filter(c => {
-    const name = lang === 'uz' ? c.nameUz : lang === 'ru' ? c.nameRu : c.nameEn;
-    const address = lang === 'uz' ? c.addressUz : lang === 'ru' ? c.addressRu : c.addressEn;
+    const name = (lang === 'uz' ? c.nameUz : lang === 'ru' ? c.nameRu : c.nameEn) || '';
+    const address = (lang === 'uz' ? c.addressUz : lang === 'ru' ? c.addressRu : c.addressEn) || '';
     return name.toLowerCase().includes(search.toLowerCase()) || address.toLowerCase().includes(search.toLowerCase());
   });
 
